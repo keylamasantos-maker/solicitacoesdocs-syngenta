@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Central de Documentos</title>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.27.0/lib/msal-browser.min.js"></script>
+<style>
+:root {
+  --brand: #1a5276;
+  --brand-light: #2e86c1;
+  --brand-bg: #eaf4fb;
+  --success: #1e8449;
+  --success-bg: #eafaf1;
+  --warning: #b7770d;
+  --warning-bg: #fef9e7;
+  --danger: #922b21;
+  --danger-bg: #fdedec;
+  --gray: #5d6d7e;
+  --gray-light: #f4f6f7;
+  --gray-border: #d5d8dc;
+  --white: #fff;
+  --text: #1c2833;
+  --text-muted: #7f8c8d;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f3f5; color: var(--text); font-size: 14px; line-height: 1.5; }
+#app { display: none; }
+
+/* LOGIN */
+#login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1a5276 0%, #2e86c1 100%); }
+.login-card { background: var(--white); border-radius: var(--radius-lg); padding: 2.5rem; width: 380px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+.login-logo { font-size: 40px; margin-bottom: 1rem; }
+.login-card h1 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.login-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 1.5rem; }
+.login-note { margin-top: 1rem; padding: 10px 12px; background: var(--brand-bg); border-radius: var(--radius); font-size: 12px; color: var(--brand); text-align: left; }
+
+/* SIDEBAR */
+#sidebar { position: fixed; top: 0; left: 0; width: 220px; height: 100vh; background: var(--brand); display: flex; flex-direction: column; z-index: 100; }
+.sidebar-header { padding: 1.25rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.sidebar-header h2 { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.95); line-height: 1.4; }
+.sidebar-header p { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
+nav { flex: 1; padding: 0.5rem 0; }
+nav a { display: flex; align-items: center; gap: 10px; padding: 10px 1rem; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; cursor: pointer; transition: all 0.15s; }
+nav a:hover, nav a.active { background: rgba(255,255,255,0.12); color: white; }
+nav a svg { width: 16px; height: 16px; flex-shrink: 0; }
+.sidebar-user { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); font-size: 12px; color: rgba(255,255,255,0.5); }
+.sidebar-user strong { display: block; color: rgba(255,255,255,0.9); font-size: 13px; margin-bottom: 2px; }
+
+/* MAIN */
+#main { margin-left: 220px; min-height: 100vh; }
+.topbar { background: var(--white); border-bottom: 1px solid var(--gray-border); padding: 0 1.5rem; height: 52px; display: flex; align-items: center; justify-content: space-between; }
+.topbar h1 { font-size: 15px; font-weight: 600; }
+.content { padding: 1.5rem; }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; text-decoration: none; }
+.btn-primary { background: var(--brand); color: white; }
+.btn-primary:hover { background: #154360; }
+.btn-secondary { background: var(--gray-light); color: var(--text); border: 1px solid var(--gray-border); }
+.btn-secondary:hover { background: #e8ecef; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-danger { background: var(--danger); color: white; }
+.btn svg { width: 14px; height: 14px; }
+
+/* CARDS */
+.card { background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--gray-border); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.card-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--gray-border); display: flex; align-items: center; justify-content: space-between; }
+.card-header h3 { font-size: 14px; font-weight: 600; }
+.card-body { padding: 1.25rem; }
+
+/* STAT CARDS */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+.stat-card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--gray-border); padding: 1rem; }
+.stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.stat-value { font-size: 26px; font-weight: 700; }
+.stat-card.danger .stat-value { color: var(--danger); }
+.stat-card.warning .stat-value { color: var(--warning); }
+.stat-card.success .stat-value { color: var(--success); }
+.stat-card.brand .stat-value { color: var(--brand); }
+
+/* BADGES */
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+.badge-pending { background: #fef9e7; color: #b7770d; }
+.badge-docs { background: #eaf4fb; color: #1a5276; }
+.badge-escl { background: #f4ecf7; color: #76448a; }
+.badge-done { background: #eafaf1; color: #1e8449; }
+.badge-na { background: var(--gray-light); color: var(--text-muted); }
+.badge-proprio { background: #eafaf1; color: #1e8449; }
+.badge-terceiro { background: #fef9e7; color: #b7770d; }
+.badge-misto { background: #f4ecf7; color: #76448a; }
+
+/* TABLE */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: var(--gray-light); padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 1px solid var(--gray-border); white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--gray-border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f8f9fa; cursor: pointer; }
+.prazo-vencido td { background: #fff5f5 !important; }
+.prazo-vencido td:first-child { border-left: 3px solid var(--danger); }
+
+/* FORMS */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group.full { grid-column: 1 / -1; }
+label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--gray-border); border-radius: var(--radius); font-size: 13px; color: var(--text); background: var(--white); transition: border 0.15s; font-family: inherit; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand-light); box-shadow: 0 0 0 3px rgba(46,134,193,0.1); }
+textarea { resize: vertical; min-height: 80px; }
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.checkbox-item { display: flex; align-items: center; gap: 6px; background: var(--gray-light); border: 1px solid var(--gray-border); border-radius: var(--radius); padding: 7px 12px; cursor: pointer; font-size: 13px; font-weight: 500; user-select: none; }
+.checkbox-item input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; }
+.checkbox-item.checked { background: var(--brand-bg); border-color: var(--brand-light); color: var(--brand); }
+.section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--brand); margin-bottom: 0.75rem; padding-bottom: 4px; border-bottom: 2px solid var(--brand-bg); }
+.form-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--gray-border); margin-top: 1rem; }
+
+/* DETAIL */
+.areas-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.area-card { border-radius: var(--radius); border: 1px solid var(--gray-border); overflow: hidden; }
+.area-card-header { padding: 0.75rem 1rem; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+.area-rh { background: #eaf4fb; color: #1a5276; }
+.area-sgi { background: #fef9e7; color: #7d6608; }
+.area-medico { background: #fdedec; color: #922b21; }
+.area-disabled { background: var(--gray-light); color: var(--text-muted); }
+.area-card-body { padding: 0.75rem 1rem; background: var(--white); }
+
+/* MODAL */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal { background: var(--white); border-radius: var(--radius-lg); width: 680px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+.modal-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--gray-border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h3 { font-size: 15px; font-weight: 600; }
+.modal-body { flex: 1; overflow-y: auto; padding: 1.25rem; }
+.modal-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--gray-border); display: flex; gap: 8px; justify-content: flex-end; }
+.email-preview { background: #f8f9fa; border: 1px solid var(--gray-border); border-radius: var(--radius); padding: 1rem; font-size: 13px; white-space: pre-wrap; line-height: 1.7; }
+.close-btn { background: none; border: none; cursor: pointer; font-size: 22px; color: var(--text-muted); line-height: 1; padding: 2px 4px; border-radius: 4px; }
+.close-btn:hover { background: var(--gray-light); }
+
+/* ALERTS */
+.alert { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; margin-bottom: 1rem; display: flex; align-items: flex-start; gap: 8px; }
+.alert-warning { background: var(--warning-bg); border: 1px solid #f0c14b; color: var(--warning); }
+.alert-danger { background: var(--danger-bg); border: 1px solid #f1948a; color: var(--danger); }
+.alert-success { background: var(--success-bg); border: 1px solid #82e0aa; color: var(--success); }
+.alert-info { background: var(--brand-bg); border: 1px solid #85c1e9; color: var(--brand); }
+
+/* LOADING */
+.loading { text-align: center; padding: 3rem; color: var(--text-muted); }
+.spinner { border: 3px solid var(--gray-border); border-top-color: var(--brand); border-radius: 50%; width: 28px; height: 28px; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { text-align: center; padding: 3rem; color: var(--text-muted); }
+.empty-state h3 { font-size: 16px; margin-bottom: 6px; color: var(--text); }
+.empty-state p { margin-bottom: 1.25rem; }
+
+/* MISC */
+.proc-num { font-family: monospace; font-size: 11px; color: var(--text-muted); }
+.proc-nome { font-weight: 500; font-size: 13px; }
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 1.5rem; margin-bottom: 1rem; }
+.info-row { display: flex; gap: 6px; font-size: 13px; align-items: flex-start; }
+.info-label { color: var(--text-muted); min-width: 130px; font-size: 12px; flex-shrink: 0; }
+.info-value { font-weight: 500; }
+.empresa-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--gray-light); border: 1px solid var(--gray-border); border-radius: 20px; padding: 4px 10px; font-size: 12px; margin: 2px; }
+.empresa-tag button { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 15px; line-height: 1; padding: 0 2px; }
+#toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1c2833; color: white; padding: 10px 16px; border-radius: var(--radius); font-size: 13px; z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; max-width: 320px; }
+#toast.show { opacity: 1; }
+.saving-indicator { font-size: 11px; color: var(--text-muted); display: none; }
+.saving-indicator.show { display: inline; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">📁</div>
+    <h1>Central de Documentos</h1>
+    <p>Controle de solicitações de documentos trabalhistas</p>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:14px;" onclick="doLogin()">
+      Entrar com Microsoft 365
+    </button>
+    <div id="login-status" style="margin-top:0.75rem;font-size:12px;color:#999;min-height:18px;"></div>
+    <div class="login-note">
+      ℹ️ Não requer permissão de administrador. Os dados ficam salvos em uma pasta no seu OneDrive (<strong>Documentos/Central Documentos</strong>) e podem ser compartilhados com o time.
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h2>📁 Central de Documentos</h2>
+      <p>P&C Advogados</p>
+    </div>
+    <nav>
+      <a onclick="showSection('dashboard')" id="nav-dashboard" class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a onclick="showSection('novo')" id="nav-novo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Novo Processo
+      </a>
+      <a onclick="showSection('config')" id="nav-config">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configurações
+      </a>
+    </nav>
+    <div class="sidebar-user">
+      <strong id="user-name">—</strong>
+      <span id="user-email"></span>
+    </div>
+  </div>
+
+  <div id="main">
+    <!-- DASHBOARD -->
+    <div id="section-dashboard">
+      <div class="topbar">
+        <h1>Dashboard</h1>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="saving-indicator" id="saving-ind">💾 Salvando...</span>
+          <button class="btn btn-secondary btn-sm" onclick="loadData()">↻ Atualizar</button>
+          <button class="btn btn-primary btn-sm" onclick="showSection('novo')">+ Novo Processo</button>
+        </div>
+      </div>
+      <div class="content">
+        <div id="dashboard-content"><div class="loading"><div class="spinner"></div>Carregando...</div></div>
+      </div>
+    </div>
+
+    <!-- NOVO PROCESSO -->
+    <div id="section-novo" style="display:none">
+      <div class="topbar">
+        <h1>Novo Processo</h1>
+        <button class="btn btn-secondary btn-sm" onclick="showSection('dashboard')">← Voltar</button>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="card-body">
+            <div id="novo-alerts"></div>
+
+            <div class="section-title">Dados do Processo</div>
+            <div class="form-grid cols3" style="margin-bottom:1.25rem">
+              <div class="form-group full">
+                <label>Nº do Processo *</label>
+                <input id="f-processo" placeholder="0010642-13.2026.5.15.0120">
+              </div>
+              <div class="form-group full">
+                <label>Vara do Trabalho e Comarca *</label>
+                <input id="f-vara" placeholder="2ª Vara do Trabalho de Jaboticabal – CON1 Araraquara">
+              </div>
+              <div class="form-group">
+                <label>Data da Audiência *</label>
+                <input id="f-data-audiencia" type="date">
+              </div>
+              <div class="form-group">
+                <label>Tipo de Audiência</label>
+                <select id="f-tipo-audiencia">
+                  <option value="Inicial">Inicial</option>
+                  <option value="Instrução">Instrução</option>
+                  <option value="Julgamento">Julgamento</option>
+                  <option value="Conciliação">Conciliação</option>
+                  <option value="Una">Una</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Prazo Administrativo *</label>
+                <input id="f-prazo-admin" type="date">
+              </div>
+              <div class="form-group full">
+                <label>Resumo do Caso *</label>
+                <textarea id="f-resumo" placeholder="Descreva os principais pedidos da reclamação..."></textarea>
+              </div>
+            </div>
+
+            <div class="section-title">Empresa Reclamada</div>
+            <div class="form-grid" style="margin-bottom:1.25rem">
+              <div class="form-group">
+                <label>Empresa *</label>
+                <select id="f-empresa">
+                  <option value="">Selecione...</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="section-title">Reclamante</div>
+            <div class="form-grid cols3" style="margin-bottom:0.75rem">
+              <div class="form-group full">
+                <label>Nome Completo *</label>
+                <input id="f-nome" placeholder="José Augusto Stanichesque">
+              </div>
+              <div class="form-group">
+                <label>CPF</label>
+                <input id="f-cpf" placeholder="000.000.000-00">
+              </div>
+              <div class="form-group">
+                <label>Função / Cargo</label>
+                <input id="f-funcao" placeholder="Auxiliar de Campo">
+              </div>
+              <div class="form-group">
+                <label>Tipo de Vínculo *</label>
+                <select id="f-vinculo" onchange="updateVinculoFields()">
+                  <option value="proprio">Empregado Próprio</option>
+                  <option value="terceiro">Empregado Terceirizado</option>
+                  <option value="misto">Misto (terceiro → próprio)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Data de Admissão</label>
+                <input id="f-admissao" type="date">
+              </div>
+              <div class="form-group">
+                <label>Data de Demissão <span style="font-weight:400">(vazio = ativo)</span></label>
+                <input id="f-demissao" type="date">
+              </div>
+            </div>
+
+            <div id="campos-terceiro" style="display:none;margin-bottom:0.75rem">
+              <div class="form-grid cols3">
+                <div class="form-group">
+                  <label>Nome da Terceirizadora</label>
+                  <input id="f-terceirizadora" placeholder="Empresa prestadora de serviços">
+                </div>
+                <div class="form-group">
+                  <label>Período como Terceirizado</label>
+                  <input id="f-periodo-terceiro" placeholder="ex: 03/2019 a 07/2021">
+                </div>
+                <div class="form-group" id="campo-periodo-proprio" style="display:none">
+                  <label>Período como Próprio</label>
+                  <input id="f-periodo-proprio" placeholder="ex: 08/2021 a 05/2024">
+                </div>
+              </div>
+            </div>
+
+            <div class="section-title" style="margin-top:1.25rem">Áreas a Acionar</div>
+            <div class="checkbox-group" style="margin-bottom:6px">
+              <label class="checkbox-item" id="chk-rh-label">
+                <input type="checkbox" id="chk-rh" onchange="toggleChk('chk-rh')"> RH
+              </label>
+              <label class="checkbox-item" id="chk-sgi-label">
+                <input type="checkbox" id="chk-sgi" onchange="toggleChk('chk-sgi')"> SGI
+              </label>
+              <label class="checkbox-item" id="chk-medico-label">
+                <input type="checkbox" id="chk-medico" onchange="toggleChk('chk-medico')"> Área Médica
+              </label>
+            </div>
+            <p style="font-size:11px;color:var(--text-muted)">Serão criadas subpastas no OneDrive apenas para as áreas selecionadas.</p>
+
+            <div class="form-actions">
+              <button class="btn btn-secondary" onclick="showSection('dashboard')">Cancelar</button>
+              <button class="btn btn-primary" id="btn-salvar" onclick="salvarProcesso()">
+                💾 Salvar e Criar Pastas
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DETALHE -->
+    <div id="section-detalhe" style="display:none">
+      <div class="topbar">
+        <h1 id="detalhe-titulo">Processo</h1>
+        <button class="btn btn-secondary btn-sm" onclick="showSection('dashboard')">← Voltar</button>
+      </div>
+      <div class="content" id="detalhe-content"></div>
+    </div>
+
+    <!-- CONFIG -->
+    <div id="section-config" style="display:none">
+      <div class="topbar"><h1>Configurações</h1></div>
+      <div class="content">
+        <div class="card" style="max-width:600px;margin-bottom:1rem">
+          <div class="card-header"><h3>Empresas do Grupo</h3></div>
+          <div class="card-body">
+            <div id="empresas-lista" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;min-height:28px"></div>
+            <div style="display:flex;gap:8px">
+              <input id="nova-empresa" placeholder="Nome da empresa" style="flex:1">
+              <button class="btn btn-secondary" onclick="addEmpresa()">Adicionar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="max-width:600px;margin-bottom:1rem">
+          <div class="card-header"><h3>E-mails por Área</h3></div>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>E-mail RH</label>
+                <input id="cfg-email-rh" placeholder="rh@empresa.com.br">
+              </div>
+              <div class="form-group">
+                <label>E-mail SGI</label>
+                <input id="cfg-email-sgi" placeholder="sgi@empresa.com.br">
+              </div>
+              <div class="form-group">
+                <label>E-mail Área Médica</label>
+                <input id="cfg-email-medico" placeholder="medico@empresa.com.br">
+              </div>
+              <div class="form-group">
+                <label>Assinatura do e-mail</label>
+                <input id="cfg-assinatura" placeholder="Atenciosamente, Equipe Jurídica - P&C">
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="saveConfig()">Salvar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="max-width:600px">
+          <div class="card-header"><h3>OneDrive</h3></div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px">Os dados são salvos em <strong>OneDrive → Documentos/Central Documentos/</strong>. Para compartilhar com o time, compartilhe essa pasta no OneDrive com os colegas — todos que tiverem acesso à pasta verão os mesmos processos.</p>
+            <div class="form-group" style="margin-bottom:1rem">
+              <label>Pasta raiz para os processos</label>
+              <input id="cfg-pasta-root" placeholder="Documentos/Processos Trabalhistas/Syngenta">
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-secondary" onclick="testarConexao()">Testar conexão</button>
+              <button class="btn btn-primary" onclick="saveConfig()">Salvar</button>
+            </div>
+            <div id="conexao-resultado" style="margin-top:0.75rem"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL E-MAIL -->
+<div id="modal-email" style="display:none">
+  <div class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📧 E-mail gerado</h3>
+        <button class="close-btn" onclick="document.getElementById('modal-email').style.display='none'">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="background:var(--gray-light);border-radius:var(--radius);padding:10px 12px;margin-bottom:1rem;font-size:12px">
+          <div style="margin-bottom:4px"><strong>Para:</strong> <span id="modal-para" style="color:var(--brand)"></span></div>
+          <div><strong>Assunto:</strong> <span id="modal-assunto"></span></div>
+        </div>
+        <div class="email-preview" id="modal-corpo"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="copiarEmail()">📋 Copiar texto</button>
+        <button class="btn btn-primary" onclick="abrirOutlook()">✉️ Abrir no Outlook</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── MSAL CONFIG ──────────────────────────────────────────────
+// Permissões que NÃO exigem consentimento de admin:
+// Files.ReadWrite = OneDrive do próprio usuário
+// User.Read = perfil básico
+const MSAL_CONFIG = {
+  auth: {
+    clientId: '8ab39c2d-a7d0-4bf3-b604-ce1b8abb48ff', // Client ID registrado P&C Advogados
+    authority: 'https://login.microsoftonline.com/common',
+    redirectUri: 'https://keylamasantos-maker.github.io/central-documentos/'
+  },
+  cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+};
+const SCOPES = ['User.Read', 'Files.ReadWrite'];
+
+let msalInstance, currentAccount;
+let processos = [];
+let currentProcesso = null;
+let dbFileId = null;
+const DB_FOLDER = 'Central Documentos';
+const DB_FILE = 'processos.json';
+
+// ── INIT ─────────────────────────────────────────────────────
+window.addEventListener('load', async () => {
+  try {
+    msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
+    await msalInstance.initialize();
+    const resp = await msalInstance.handleRedirectPromise();
+    if (resp) { currentAccount = resp.account; await afterLogin(); return; }
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) { currentAccount = accounts[0]; await afterLogin(); }
+  } catch(e) { console.error(e); setLoginStatus('Erro ao inicializar: ' + e.message); }
+});
+
+function setLoginStatus(msg) { document.getElementById('login-status').textContent = msg; }
+
+async function doLogin() {
+  try {
+    setLoginStatus('Abrindo janela de login...');
+    const resp = await msalInstance.loginPopup({ scopes: SCOPES });
+    currentAccount = resp.account;
+    await afterLogin();
+  } catch(e) {
+    setLoginStatus('Erro: ' + e.message);
+  }
+}
+
+async function getToken() {
+  try {
+    const r = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: currentAccount });
+    return r.accessToken;
+  } catch {
+    const r = await msalInstance.acquireTokenPopup({ scopes: SCOPES });
+    return r.accessToken;
+  }
+}
+
+async function afterLogin() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('user-name').textContent = currentAccount.name;
+  document.getElementById('user-email').textContent = currentAccount.username;
+  loadConfigFromStorage();
+  renderEmpresasSelect();
+  await loadData();
+}
+
+// ── GRAPH API ────────────────────────────────────────────────
+async function graph(method, path, body) {
+  const token = await getToken();
+  const opts = { method, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' } };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const r = await fetch('https://graph.microsoft.com/v1.0' + path, opts);
+  if (r.status === 204) return null;
+  const data = await r.json();
+  if (!r.ok) throw new Error(data?.error?.message || r.statusText);
+  return data;
+}
+
+// ── ONEDRIVE: DB FILE ────────────────────────────────────────
+async function ensureDbFolder() {
+  try {
+    const r = await graph('GET', `/me/drive/root:/Documentos/${DB_FOLDER}`);
+    return r.id;
+  } catch {
+    const r = await graph('PUT', `/me/drive/root:/Documentos/${DB_FOLDER}:`, { folder: {}, '@microsoft.graph.conflictBehavior': 'return' });
+    return r.id;
+  }
+}
+
+async function loadData() {
+  document.getElementById('dashboard-content').innerHTML = '<div class="loading"><div class="spinner"></div>Carregando processos...</div>';
+  try {
+    const r = await graph('GET', `/me/drive/root:/Documentos/${DB_FOLDER}/${DB_FILE}:/content`);
+    processos = Array.isArray(r) ? r : [];
+    // pega o fileId para updates
+    try {
+      const meta = await graph('GET', `/me/drive/root:/Documentos/${DB_FOLDER}/${DB_FILE}`);
+      dbFileId = meta.id;
+    } catch {}
+  } catch(e) {
+    if (e.message.includes('itemNotFound') || e.message.includes('not found') || e.message.includes('404')) {
+      processos = [];
+    } else {
+      console.warn('loadData:', e.message);
+      processos = [];
+    }
+  }
+  renderDashboard();
+}
+
+async function saveData() {
+  showSaving(true);
+  try {
+    const content = JSON.stringify(processos, null, 2);
+    await graph('PUT', `/me/drive/root:/Documentos/${DB_FOLDER}/${DB_FILE}:/content`,
+      new TextEncoder().encode(content));
+    // workaround: Graph aceita string diretamente via fetch com content-type text
+    // Usamos upload session alternativa:
+  } catch {}
+  // Método alternativo direto (mais confiável para JSON)
+  try {
+    const token = await getToken();
+    const content = JSON.stringify(processos, null, 2);
+    const r = await fetch(`https://graph.microsoft.com/v1.0/me/drive/root:/Documentos/${DB_FOLDER}/${DB_FILE}:/content`, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: content
+    });
+    if (r.ok) { showSaving(false); return true; }
+  } catch(e) { console.error('saveData:', e); }
+  showSaving(false);
+  return false;
+}
+
+function showSaving(v) {
+  const el = document.getElementById('saving-ind');
+  if (el) el.classList.toggle('show', v);
+}
+
+// ── PASTAS DO PROCESSO ───────────────────────────────────────
+async function criarPastasProcesso(processo) {
+  const cfg = getConfig();
+  const pastaRoot = cfg.pastaRoot || 'Processos Trabalhistas';
+  const links = {};
+  try {
+    // Pasta raiz dos processos
+    const rootPath = `Documentos/${pastaRoot}`;
+    await garantirPasta(`/me/drive/root:/${rootPath}`);
+    // Pasta da empresa
+    const empresaPath = `${rootPath}/${processo.Empresa || 'Empresa'}`;
+    await garantirPasta(`/me/drive/root:/${empresaPath}`);
+    // Pasta do processo
+    const procNome = `${processo.NumeroProcesso} - ${processo.NomeReclamante}`;
+    const procPath = `${empresaPath}/${procNome}`;
+    await garantirPasta(`/me/drive/root:/${procPath}`);
+    // Subpastas por área
+    const areas = processo.AreasAcionadas || [];
+    for (const area of areas) {
+      const areaPath = `${procPath}/${area}`;
+      const folder = await garantirPasta(`/me/drive/root:/${areaPath}`);
+      try {
+        const linkResp = await graph('POST', `/me/drive/root:/${areaPath}:/createLink`, { type: 'edit', scope: 'organization' });
+        links[area] = linkResp?.link?.webUrl || folder?.webUrl || '';
+      } catch {
+        links[area] = folder?.webUrl || '';
+      }
+    }
+  } catch(e) {
+    console.warn('criarPastas:', e.message);
+    showToast('⚠️ Erro ao criar pastas: ' + e.message, 4000);
+  }
+  return links;
+}
+
+async function garantirPasta(graphPath) {
+  try {
+    return await graph('GET', graphPath);
+  } catch {
+    // cria via parent
+    const parts = graphPath.split('/');
+    const nome = decodeURIComponent(parts[parts.length - 1].replace(':', ''));
+    const parentPath = parts.slice(0, -1).join('/');
+    try {
+      const parentId = (await graph('GET', parentPath)).id;
+      return await graph('POST', `/me/drive/items/${parentId}/children`, {
+        name: nome, folder: {}, '@microsoft.graph.conflictBehavior': 'return'
+      });
+    } catch(e2) {
+      console.warn('garantirPasta:', e2.message);
+      return {};
+    }
+  }
+}
+
+// ── SALVAR PROCESSO ──────────────────────────────────────────
+async function salvarProcesso() {
+  const f = id => (document.getElementById(id)?.value || '').trim();
+  const erros = [];
+  if (!f('f-processo')) erros.push('Nº do Processo');
+  if (!f('f-vara')) erros.push('Vara e Comarca');
+  if (!f('f-data-audiencia')) erros.push('Data da Audiência');
+  if (!f('f-prazo-admin')) erros.push('Prazo Administrativo');
+  if (!f('f-nome')) erros.push('Nome do Reclamante');
+  if (!f('f-resumo')) erros.push('Resumo do Caso');
+
+  const areas = [];
+  if (document.getElementById('chk-rh').checked) areas.push('RH');
+  if (document.getElementById('chk-sgi').checked) areas.push('SGI');
+  if (document.getElementById('chk-medico').checked) areas.push('Medico');
+  if (!areas.length) erros.push('ao menos uma área');
+
+  const alertDiv = document.getElementById('novo-alerts');
+  if (erros.length) {
+    alertDiv.innerHTML = `<div class="alert alert-danger">⚠️ Campos obrigatórios: ${erros.join(', ')}</div>`;
+    return;
+  }
+
+  const btn = document.getElementById('btn-salvar');
+  btn.disabled = true;
+  btn.textContent = '⏳ Salvando...';
+  alertDiv.innerHTML = '<div class="alert alert-info">Criando pastas no OneDrive e salvando...</div>';
+
+  const vinculo = f('f-vinculo') || 'proprio';
+  const processo = {
+    id: Date.now().toString(),
+    NumeroProcesso: f('f-processo'),
+    NomeReclamante: f('f-nome'),
+    CPF: f('f-cpf'),
+    Funcao: f('f-funcao'),
+    DataAdmissao: f('f-admissao'),
+    DataDemissao: f('f-demissao'),
+    VaraComarca: f('f-vara'),
+    DataAudiencia: f('f-data-audiencia'),
+    TipoAudiencia: f('f-tipo-audiencia') || 'Inicial',
+    ResumoCaso: f('f-resumo'),
+    Empresa: f('f-empresa') || '',
+    TipoVinculo: vinculo,
+    Terceirizadora: f('f-terceirizadora') || '',
+    PeriodoTerceiro: f('f-periodo-terceiro') || '',
+    PeriodoProprio: f('f-periodo-proprio') || '',
+    PrazoAdministrativo: f('f-prazo-admin'),
+    AreasAcionadas: areas,
+    StatusRH: areas.includes('RH') ? 'pendente' : 'na',
+    StatusSGI: areas.includes('SGI') ? 'pendente' : 'na',
+    StatusMedico: areas.includes('Medico') ? 'pendente' : 'na',
+    ObsRH: '', ObsSGI: '', ObsMedico: '',
+    LinkPastaRH: '', LinkPastaSGI: '', LinkPastaMedico: '',
+    EmailGerado: false,
+    DataCadastro: new Date().toISOString(),
+    CadastradoPor: currentAccount?.name || ''
+  };
+
+  try {
+    const links = await criarPastasProcesso(processo);
+    processo.LinkPastaRH = links['RH'] || '';
+    processo.LinkPastaSGI = links['SGI'] || '';
+    processo.LinkPastaMedico = links['Medico'] || '';
+
+    processos.push(processo);
+    await saveData();
+
+    alertDiv.innerHTML = '<div class="alert alert-success">✅ Processo cadastrado com sucesso!</div>';
+    showToast('Processo salvo!');
+    setTimeout(() => { showSection('dashboard'); limparForm(); }, 1200);
+  } catch(e) {
+    alertDiv.innerHTML = `<div class="alert alert-danger">❌ Erro: ${e.message}</div>`;
+  }
+  btn.disabled = false;
+  btn.textContent = '💾 Salvar e Criar Pastas';
+}
+
+async function updateProcesso(id, campos) {
+  const idx = processos.findIndex(p => p.id === id);
+  if (idx === -1) return;
+  Object.assign(processos[idx], campos);
+  await saveData();
+  showToast('Salvo!');
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────
+function renderDashboard() {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const total = processos.length;
+  const vencidos = processos.filter(p => {
+    if (!p.PrazoAdministrativo || todoConcluido(p)) return false;
+    return new Date(p.PrazoAdministrativo + 'T00:00:00') < hoje;
+  }).length;
+  const pendentes = processos.filter(p => !todoConcluido(p)).length;
+  const concluidos = processos.filter(p => todoConcluido(p)).length;
+
+  let html = `<div class="stats-grid">
+    <div class="stat-card brand"><div class="stat-label">Total</div><div class="stat-value">${total}</div></div>
+    <div class="stat-card warning"><div class="stat-label">Pendentes</div><div class="stat-value">${pendentes}</div></div>
+    <div class="stat-card danger"><div class="stat-label">Prazo vencido</div><div class="stat-value">${vencidos}</div></div>
+    <div class="stat-card success"><div class="stat-label">Concluídos</div><div class="stat-value">${concluidos}</div></div>
+  </div>`;
+
+  if (vencidos > 0) html += `<div class="alert alert-danger" style="margin-bottom:1rem">⚠️ ${vencidos} processo(s) com prazo administrativo vencido sem documentação completa.</div>`;
+
+  if (!processos.length) {
+    html += `<div class="card"><div class="card-body"><div class="empty-state"><h3>Nenhum processo ainda</h3><p>Cadastre o primeiro processo para começar o controle.</p><button class="btn btn-primary" onclick="showSection('novo')">+ Novo Processo</button></div></div></div>`;
+  } else {
+    html += `<div class="card"><div class="card-header"><h3>Processos (${total})</h3></div><div class="table-wrap"><table>
+      <thead><tr><th>Reclamante / Processo</th><th>Empresa</th><th>Vínculo</th><th>Audiência</th><th>Prazo Admin.</th><th>RH</th><th>SGI</th><th>Médico</th><th></th></tr></thead>
+      <tbody>`;
+    [...processos].reverse().forEach(p => {
+      const pDate = p.PrazoAdministrativo ? new Date(p.PrazoAdministrativo + 'T00:00:00') : null;
+      const vencido = pDate && pDate < hoje && !todoConcluido(p);
+      html += `<tr class="${vencido ? 'prazo-vencido' : ''}" onclick="abrirDetalhe('${p.id}')">
+        <td><div class="proc-nome">${esc(p.NomeReclamante)}</div><div class="proc-num">${esc(p.NumeroProcesso)}</div></td>
+        <td style="font-size:12px;max-width:130px">${esc(p.Empresa)}</td>
+        <td>${bdgVinculo(p.TipoVinculo)}</td>
+        <td style="font-size:12px;white-space:nowrap">${fmtDate(p.DataAudiencia)}</td>
+        <td style="font-size:12px;white-space:nowrap">${vencido ? '⚠️ ' : ''}${fmtDate(p.PrazoAdministrativo)}</td>
+        <td>${bdgStatus(p.StatusRH)}</td>
+        <td>${bdgStatus(p.StatusSGI)}</td>
+        <td>${bdgStatus(p.StatusMedico)}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();abrirDetalhe('${p.id}')">Ver</button></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div></div>`;
+  }
+  document.getElementById('dashboard-content').innerHTML = html;
+}
+
+function todoConcluido(p) {
+  return (p.AreasAcionadas || []).every(a => p['Status' + a] === 'concluido');
+}
+
+// ── DETALHE ──────────────────────────────────────────────────
+function abrirDetalhe(id) {
+  currentProcesso = processos.find(p => p.id === id);
+  if (!currentProcesso) return;
+  const p = currentProcesso;
+  document.getElementById('detalhe-titulo').textContent = p.NomeReclamante;
+
+  const areaLabel = a => a === 'Medico' ? 'Área Médica' : a;
+  const areaCls = { RH: 'area-rh', SGI: 'area-sgi', Medico: 'area-medico' };
+
+  let areasHtml = '';
+  ['RH','SGI','Medico'].forEach(area => {
+    const ativa = (p.AreasAcionadas || []).includes(area);
+    const status = p['Status' + area] || 'na';
+    const link = p['LinkPasta' + area] || '';
+    const obs = p['Obs' + area] || '';
+    areasHtml += `<div class="area-card">
+      <div class="area-card-header ${ativa ? areaCls[area] : 'area-disabled'}">
+        ${areaLabel(area)} ${ativa ? bdgStatus(status) : '<span class="badge badge-na">Não acionada</span>'}
+      </div>
+      <div class="area-card-body" style="font-size:13px">
+        ${ativa ? `
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:11px;color:var(--text-muted)">Status</span>
+            <select style="font-size:11px;padding:3px 6px;width:auto" onchange="updateStatus('${p.id}','Status${area}',this.value)">
+              <option value="pendente" ${status==='pendente'?'selected':''}>⏳ Pendente</option>
+              <option value="docs_enviados" ${status==='docs_enviados'?'selected':''}>📁 Docs enviados</option>
+              <option value="esclarecimentos_ok" ${status==='esclarecimentos_ok'?'selected':''}>✅ Esclar. OK</option>
+              <option value="concluido" ${status==='concluido'?'selected':''}>✔ Concluído</option>
+            </select>
+          </div>
+          ${link ? `<a href="${esc(link)}" target="_blank" class="btn btn-secondary btn-sm" style="margin-bottom:8px;font-size:11px;text-decoration:none">🔗 Abrir pasta ${areaLabel(area)}</a>` : '<span style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:8px">Sem link de pasta</span>'}
+          <textarea style="font-size:11px;min-height:52px;width:100%" placeholder="Observações..." onblur="updateObs('${p.id}','Obs${area}',this.value)">${esc(obs)}</textarea>
+        ` : '<span style="color:var(--text-muted);font-size:12px">Não acionada neste processo.</span>'}
+      </div>
+    </div>`;
+  });
+
+  const vinculoDesc = () => {
+    if (p.TipoVinculo === 'terceiro') return `Terceirizado (${p.Terceirizadora || '?'}${p.PeriodoTerceiro ? ', ' + p.PeriodoTerceiro : ''})`;
+    if (p.TipoVinculo === 'misto') return `Misto — Terceiro: ${p.Terceirizadora || '?'}${p.PeriodoTerceiro ? ' (' + p.PeriodoTerceiro + ')' : ''}${p.PeriodoProprio ? ' → Próprio: ' + p.PeriodoProprio : ''}`;
+    return 'Empregado Próprio';
+  };
+
+  document.getElementById('detalhe-content').innerHTML = `
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-header">
+        <h3>${esc(p.NumeroProcesso)} — ${esc(p.VaraComarca)}</h3>
+        <button class="btn btn-primary btn-sm" onclick="gerarEmail()">📧 Gerar E-mail</button>
+      </div>
+      <div class="card-body">
+        <div class="info-grid">
+          <div class="info-row"><span class="info-label">Empresa</span><span class="info-value">${esc(p.Empresa)}</span></div>
+          <div class="info-row"><span class="info-label">Audiência</span><span class="info-value">${fmtDate(p.DataAudiencia)} — ${esc(p.TipoAudiencia)}</span></div>
+          <div class="info-row"><span class="info-label">Prazo administrativo</span><span class="info-value">${fmtDate(p.PrazoAdministrativo)}</span></div>
+          <div class="info-row"><span class="info-label">CPF / Função</span><span class="info-value">${esc(p.CPF)} ${p.Funcao ? '· ' + esc(p.Funcao) : ''}</span></div>
+          <div class="info-row"><span class="info-label">Admissão / Demissão</span><span class="info-value">${fmtDate(p.DataAdmissao)} ${p.DataDemissao ? '→ ' + fmtDate(p.DataDemissao) : '(ativo)'}</span></div>
+          <div class="info-row"><span class="info-label">Vínculo</span><span class="info-value">${vinculoDesc()}</span></div>
+        </div>
+        <div style="margin-top:10px"><span class="info-label">Resumo do caso</span><p style="margin-top:4px;font-size:13px">${esc(p.ResumoCaso)}</p></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>Status por Área</h3></div>
+      <div class="card-body"><div class="areas-grid">${areasHtml}</div></div>
+    </div>`;
+  showSection('detalhe');
+}
+
+async function updateStatus(id, campo, valor) {
+  const p = processos.find(x => x.id === id);
+  if (p) p[campo] = valor;
+  await saveData();
+  renderDashboard();
+  showToast('Status atualizado!');
+}
+
+async function updateObs(id, campo, valor) {
+  const p = processos.find(x => x.id === id);
+  if (p) p[campo] = valor;
+  await saveData();
+}
+
+// ── E-MAIL ───────────────────────────────────────────────────
+function gerarEmail() {
+  const p = currentProcesso;
+  if (!p) return;
+  const cfg = getConfig();
+  const areas = p.AreasAcionadas || [];
+  const areaLabel = a => a === 'Medico' ? 'Área Médica' : a;
+  const emailMap = { RH: cfg.emailRH, SGI: cfg.emailSGI, Medico: cfg.emailMedico };
+  const dests = areas.map(a => emailMap[a]).filter(Boolean).join('; ');
+
+  let linhasDocs = areas.map(a =>
+    `Solicitação de Documentos e Esclarecimentos ${areaLabel(a)}: Solicitação de Documento - ${a}.docx`
+  ).join('\n');
+
+  let linhasPastas = areas.map(a => {
+    const link = p['LinkPasta' + a] || '[INSERIR LINK]';
+    return `DOCS - ${areaLabel(a)}: ${link}`;
+  }).join('\n');
+
+  let obsVinculo = '';
+  if (p.TipoVinculo === 'terceiro') {
+    obsVinculo = `\nObs.: O reclamante prestou serviços na condição de empregado terceirizado pela empresa ${p.Terceirizadora || '[terceirizadora]'}${p.PeriodoTerceiro ? ' no período de ' + p.PeriodoTerceiro : ''}.`;
+  } else if (p.TipoVinculo === 'misto') {
+    obsVinculo = `\nObs.: O reclamante possui vínculo misto: atuou como terceirizado pela empresa ${p.Terceirizadora || '[terceirizadora]'}${p.PeriodoTerceiro ? ' (' + p.PeriodoTerceiro + ')' : ''} e posteriormente foi admitido como empregado próprio${p.PeriodoProprio ? ' (' + p.PeriodoProprio + ')' : ''}.`;
+  }
+
+  const corpo = `Prezados, boa tarde! Tudo bem?
+
+Referente ao processo trabalhista movido por ${p.NomeReclamante} em face de ${p.Empresa}.
+${p.VaraComarca}
+Audiência ${p.TipoAudiencia} designada para ${fmtDate(p.DataAudiencia)}.
+
+RESUMO DO CASO:
+
+${p.ResumoCaso}
+${obsVinculo}
+${linhasDocs}
+Cópia Integral: [LINK DO PROCESSO]
+${linhasPastas}
+Prazo: ${fmtDate(p.PrazoAdministrativo)}.
+
+Observação: Solicitamos que os documentos sejam inseridos na pasta indicada no link encaminhado, e que os esclarecimentos sejam prestados diretamente no formulário enviado. Ressaltamos que, ao realizar a inserção dos documentos, há um campo específico no arquivo Word para registro dos itens já encaminhados. Caso haja qualquer dificuldade com essa forma de envio, pedimos que nos informem prontamente. Conforme alinhado na reunião, essa sistemática tem como objetivo assegurar maior organização e controle na gestão dos documentos.
+
+Muito obrigada.
+
+${cfg.assinatura || 'Atenciosamente,\nEquipe Jurídica – P&C Advogados'}`;
+
+  const assunto = `Solicitação de Documentos – ${p.NomeReclamante} – Proc. ${p.NumeroProcesso}`;
+  document.getElementById('modal-para').textContent = dests || '[configure e-mails nas Configurações]';
+  document.getElementById('modal-assunto').textContent = assunto;
+  document.getElementById('modal-corpo').textContent = corpo;
+  document.getElementById('modal-email').style.display = 'block';
+
+  if (!p.EmailGerado) { updateProcesso(p.id, { EmailGerado: true }); }
+}
+
+function copiarEmail() {
+  navigator.clipboard.writeText(document.getElementById('modal-corpo').textContent)
+    .then(() => showToast('E-mail copiado!'));
+}
+
+function abrirOutlook() {
+  const para = encodeURIComponent(document.getElementById('modal-para').textContent);
+  const assunto = encodeURIComponent(document.getElementById('modal-assunto').textContent);
+  const corpo = encodeURIComponent(document.getElementById('modal-corpo').textContent);
+  window.open(`mailto:${para}?subject=${assunto}&body=${corpo}`);
+}
+
+// ── CONFIG ───────────────────────────────────────────────────
+function getConfig() {
+  return {
+    empresas: JSON.parse(localStorage.getItem('empresas') || '["Syngenta Proteção de Cultivos Ltda."]'),
+    emailRH: localStorage.getItem('email_rh') || '',
+    emailSGI: localStorage.getItem('email_sgi') || '',
+    emailMedico: localStorage.getItem('email_medico') || '',
+    assinatura: localStorage.getItem('assinatura') || '',
+    pastaRoot: localStorage.getItem('pasta_root') || 'Processos Trabalhistas'
+  };
+}
+
+function loadConfigFromStorage() {
+  const cfg = getConfig();
+  const s = id => { const el = document.getElementById(id); if (el) return el; };
+  if (s('cfg-email-rh')) s('cfg-email-rh').value = cfg.emailRH;
+  if (s('cfg-email-sgi')) s('cfg-email-sgi').value = cfg.emailSGI;
+  if (s('cfg-email-medico')) s('cfg-email-medico').value = cfg.emailMedico;
+  if (s('cfg-assinatura')) s('cfg-assinatura').value = cfg.assinatura;
+  if (s('cfg-pasta-root')) s('cfg-pasta-root').value = cfg.pastaRoot;
+  renderEmpresas();
+  renderEmpresasSelect();
+}
+
+function saveConfig() {
+  const f = id => (document.getElementById(id)?.value || '').trim();
+  localStorage.setItem('email_rh', f('cfg-email-rh'));
+  localStorage.setItem('email_sgi', f('cfg-email-sgi'));
+  localStorage.setItem('email_medico', f('cfg-email-medico'));
+  localStorage.setItem('assinatura', f('cfg-assinatura'));
+  localStorage.setItem('pasta_root', f('cfg-pasta-root') || 'Processos Trabalhistas');
+  showToast('Configurações salvas!');
+}
+
+function addEmpresa() {
+  const val = (document.getElementById('nova-empresa').value || '').trim();
+  if (!val) return;
+  const cfg = getConfig();
+  if (cfg.empresas.includes(val)) { showToast('Empresa já cadastrada.'); return; }
+  cfg.empresas.push(val);
+  localStorage.setItem('empresas', JSON.stringify(cfg.empresas));
+  document.getElementById('nova-empresa').value = '';
+  renderEmpresas(); renderEmpresasSelect();
+  showToast('Empresa adicionada!');
+}
+
+function removeEmpresa(i) {
+  const cfg = getConfig();
+  cfg.empresas.splice(i, 1);
+  localStorage.setItem('empresas', JSON.stringify(cfg.empresas));
+  renderEmpresas(); renderEmpresasSelect();
+}
+
+function renderEmpresas() {
+  const div = document.getElementById('empresas-lista');
+  if (!div) return;
+  const cfg = getConfig();
+  div.innerHTML = cfg.empresas.map((e, i) =>
+    `<span class="empresa-tag">${esc(e)}<button onclick="removeEmpresa(${i})" title="Remover">×</button></span>`
+  ).join('');
+}
+
+function renderEmpresasSelect() {
+  const sel = document.getElementById('f-empresa');
+  if (!sel) return;
+  const cfg = getConfig();
+  sel.innerHTML = '<option value="">Selecione...</option>' +
+    cfg.empresas.map(e => `<option value="${esc(e)}">${esc(e)}</option>`).join('');
+}
+
+async function testarConexao() {
+  const div = document.getElementById('conexao-resultado');
+  div.innerHTML = '<span style="color:var(--text-muted);font-size:13px">Testando...</span>';
+  try {
+    const r = await graph('GET', '/me/drive/root:/Documentos');
+    div.innerHTML = `<div class="alert alert-success">✅ OneDrive conectado. Pasta Documentos encontrada.</div>`;
+  } catch(e) {
+    div.innerHTML = `<div class="alert alert-danger">❌ ${e.message}</div>`;
+  }
+}
+
+// ── UI HELPERS ───────────────────────────────────────────────
+function showSection(name) {
+  ['dashboard','novo','detalhe','config'].forEach(s => {
+    document.getElementById('section-' + s).style.display = s === name ? 'block' : 'none';
+  });
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  const nav = document.getElementById('nav-' + name);
+  if (nav) nav.classList.add('active');
+  if (name === 'config') { loadConfigFromStorage(); }
+  if (name === 'novo') { limparForm(); renderEmpresasSelect(); }
+  if (name === 'dashboard') { renderDashboard(); }
+}
+
+function limparForm() {
+  ['f-processo','f-vara','f-nome','f-cpf','f-funcao','f-admissao','f-demissao',
+   'f-resumo','f-terceirizadora','f-periodo-terceiro','f-periodo-proprio','f-prazo-admin']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('f-tipo-audiencia').value = 'Inicial';
+  document.getElementById('f-vinculo').value = 'proprio';
+  ['rh','sgi','medico'].forEach(a => {
+    document.getElementById('chk-' + a).checked = false;
+    document.getElementById('chk-' + a + '-label').classList.remove('checked');
+  });
+  document.getElementById('campos-terceiro').style.display = 'none';
+  document.getElementById('campo-periodo-proprio').style.display = 'none';
+  document.getElementById('novo-alerts').innerHTML = '';
+}
+
+function updateVinculoFields() {
+  const v = document.getElementById('f-vinculo').value;
+  document.getElementById('campos-terceiro').style.display = (v === 'terceiro' || v === 'misto') ? 'block' : 'none';
+  document.getElementById('campo-periodo-proprio').style.display = v === 'misto' ? 'block' : 'none';
+}
+
+function toggleChk(id) {
+  const checked = document.getElementById(id).checked;
+  document.getElementById(id + '-label').classList.toggle('checked', checked);
+}
+
+function showToast(msg, dur = 2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// Helpers
+function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDate(d) {
+  if (!d) return '—';
+  const p = d.split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d;
+}
+function bdgStatus(s) {
+  const m = { pendente:['badge-pending','⏳ Pendente'], docs_enviados:['badge-docs','📁 Docs enviados'], esclarecimentos_ok:['badge-escl','✅ Esclar. OK'], concluido:['badge-done','✔ Concluído'], na:['badge-na','—'] };
+  const [c,l] = m[s] || ['badge-na','—'];
+  return `<span class="badge ${c}">${l}</span>`;
+}
+function bdgVinculo(v) {
+  const m = { proprio:['badge-proprio','Próprio'], terceiro:['badge-terceiro','Terceiro'], misto:['badge-misto','Misto'] };
+  const [c,l] = m[v] || ['badge-na', v||'—'];
+  return `<span class="badge ${c}">${l}</span>`;
+}
+</script>
+</body>
+</html>
